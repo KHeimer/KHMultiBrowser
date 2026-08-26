@@ -77,10 +77,14 @@ namespace KHMultiBrowser
         /// </summary>
         public string Get(string key)
         {
+            if (string.IsNullOrEmpty(key))
+                return key;
+
             if (_currentLanguage.TryGetValue(key, out var value))
                 return value;
 
-            return key; // Return key if not found
+            // Fallback: Return key as-is if not found (helps debugging)
+            return key;
         }
 
         /// <summary>
