@@ -43,6 +43,8 @@ namespace KHMultiBrowser
     {
         private TableLayoutPanel tableLayoutPanelBrowsers;
         private readonly string stateFilePath;
+        private readonly string settingsFilePath;
+        private AppSettings appSettings;
 
         // Hilfsklasse für gespeicherten Zustand pro Pane
         private class BrowserState
@@ -55,10 +57,14 @@ namespace KHMultiBrowser
         {
             InitializeComponent();
 
-            // Speicherpfad in %AppData%\KHMultiBrowser\browsers.json
+            // Speicherpfade in %AppData%\KHMultiBrowser\
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var dir = Path.Combine(appData, "KHMultiBrowser");
             stateFilePath = Path.Combine(dir, "browsers.json");
+            settingsFilePath = Path.Combine(dir, "settings.json");
+
+            // Lade Settings
+            appSettings = LoadSettings();
 
             InitForm();
 
@@ -74,13 +80,32 @@ namespace KHMultiBrowser
             this.Padding = new Padding(8);
             this.DoubleBuffered = true;
 
+            // Erstelle MenuStrip mit Settings
+            var menuStrip = new MenuStrip
+            {
+                BackColor = Color.FromArgb(245, 245, 247)
+            };
+            var fileMenu = new ToolStripMenuItem("File");
+            var settingsMenuItem = new ToolStripMenuItem("Settings", null, SettingsMenuItem_Click);
+            var exitMenuItem = new ToolStripMenuItem("Exit", null, (s, e) => this.Close());
+            fileMenu.DropDownItems.Add(settingsMenuItem);
+            fileMenu.DropDownItems.Add(new ToolStripSeparator());
+            fileMenu.DropDownItems.Add(exitMenuItem);
+            menuStrip.Items.Add(fileMenu);
+            this.MainMenuStrip = menuStrip;
+            this.Controls.Add(menuStrip);
+
+            // Verwende Rows/Columns aus Settings
+            int rows = appSettings.Rows;
+            int cols = appSettings.Columns;
+
             // TableLayoutPanel anlegen
             var table = new TableLayoutPanel
             {
                 Name = "tableLayoutPanelBrowsers",
                 Dock = DockStyle.Fill,
-                ColumnCount = 3,
-                RowCount = 3,
+                ColumnCount = cols,
+                RowCount = rows,
                 Padding = new Padding(12),
                 Margin = new Padding(0),
                 BackColor = Color.Transparent,
@@ -91,17 +116,20 @@ namespace KHMultiBrowser
             this.tableLayoutPanelBrowsers = table;
 
             // Spalten- und Zeilenstile auf Prozentwerte setzen (gleichmäßig)
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < cols; i++)
             {
-                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
-                table.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / 3f));
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / cols));
+            }
+            for (int i = 0; i < rows; i++)
+            {
+                table.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / rows));
             }
 
-            // 3x3 BrowserWithAddressBox hinzufügen
+            // rows x cols BrowserWithAddressBox hinzufügen
             int index = 0;
-            for (int row = 0; row < 3; row++)
+            for (int row = 0; row < rows; row++)
             {
-                for (int col = 0; col < 3; col++)
+                for (int col = 0; col < cols; col++)
                 {
                     var browser = new BrowserWithAddressBox
                     {
@@ -110,8 +138,8 @@ namespace KHMultiBrowser
                         Margin = new Padding(0)
                     };
 
-                    // Optional: Default-Startadresse
-                    browser.Address = $"https://example.com/?pane={index + 1}";
+                    // Default-Startadresse
+                    browser.Address = "about:blank";
 
                     // Card-like panel für moderneres Aussehen
                     var card = new CardPanel
@@ -143,6 +171,7 @@ namespace KHMultiBrowser
         private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
         {
             SaveBrowserAddresses();
+            SaveSettings();
         }
 
         private async Task LoadBrowserAddressesAsync()
@@ -278,6 +307,178 @@ namespace KHMultiBrowser
                         yield return nested;
                 }
             }
+        }
+
+        private AppSettings LoadSettings()
+        {
+            try
+            {
+                if (!File.Exists(settingsFilePath))
+                    return new AppSettings(); // Default: 3x3
+
+                var json = File.ReadAllText(settingsFilePath);
+                if (string.IsNullOrWhiteSpace(json))
+                    return new AppSettings();
+
+                var settings = JsonSerializer.Deserialize<AppSettings>(json);
+                if (settings != null)
+                {
+                    settings.Validate();
+                    return settings;
+                }
+            }
+            catch
+            {
+                // Fehler beim Laden ignorieren
+            }
+
+            return new AppSettings();
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                if (appSettings == null)
+                    return;
+
+                appSettings.Validate();
+
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(appSettings, options);
+
+                var dir = Path.GetDirectoryName(settingsFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                File.WriteAllText(settingsFilePath, json);
+            }
+            catch
+            {
+                // Fehler beim Speichern ignorieren
+            }
+        }
+
+        private void SettingsMenuItem_Click(object? sender, EventArgs e)
+        {
+            using (var dialog = new SettingsDialog())
+            {
+                dialog.SetValues(appSettings.Rows, appSettings.Columns);
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    // Prüfe ob Änderungen vorhanden sind
+                    if (dialog.GridRows != appSettings.Rows || dialog.GridColumns != appSettings.Columns)
+                    {
+                        appSettings.Rows = dialog.GridRows;
+                        appSettings.Columns = dialog.GridColumns;
+                        SaveSettings();
+
+                        // Rebuild the table layout
+                        RebuildTableLayout();
+                    }
+                }
+            }
+        }
+
+        private void RebuildTableLayout()
+        {
+            // Speichere aktuelle Browser-States
+            var savedStates = new Dictionary<string, (string Address, double Zoom)>();
+            foreach (var ctrl in EnumerateBrowsers())
+            {
+                try
+                {
+                    savedStates[ctrl.Name] = (ctrl.Address, ctrl.GetZoom());
+                }
+                catch
+                {
+                    // Fehler beim Speichern von State ignorieren
+                }
+            }
+
+            // Entferne altes TableLayoutPanel und alle Card-Controls
+            if (tableLayoutPanelBrowsers != null)
+            {
+                this.Controls.Remove(tableLayoutPanelBrowsers);
+                tableLayoutPanelBrowsers.Dispose();
+                tableLayoutPanelBrowsers = null;
+            }
+
+            // Starte InitForm neu (ohne MenuStrip zu erstellen)
+            int rows = appSettings.Rows;
+            int cols = appSettings.Columns;
+
+            var table = new TableLayoutPanel
+            {
+                Name = "tableLayoutPanelBrowsers",
+                Dock = DockStyle.Fill,
+                ColumnCount = cols,
+                RowCount = rows,
+                Padding = new Padding(12),
+                Margin = new Padding(0),
+                BackColor = Color.Transparent,
+                CellBorderStyle = TableLayoutPanelCellBorderStyle.None
+            };
+
+            this.tableLayoutPanelBrowsers = table;
+
+            // Spalten- und Zeilenstile
+            for (int i = 0; i < cols; i++)
+            {
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / cols));
+            }
+            for (int i = 0; i < rows; i++)
+            {
+                table.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / rows));
+            }
+
+            // Füge neue Browser-Controls ein
+            int index = 0;
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < cols; col++)
+                {
+                    var browser = new BrowserWithAddressBox
+                    {
+                        Name = $"browserWithAddressBox_{row}_{col}",
+                        Dock = DockStyle.Fill,
+                        Margin = new Padding(0)
+                    };
+
+                    // Versuche gespeicherte State wiederherzustellen
+                    if (savedStates.TryGetValue(browser.Name, out var state))
+                    {
+                        browser.Address = state.Address;
+                        _ = browser.SetZoomAsync(state.Zoom); // Fire-and-forget
+                    }
+                    else
+                    {
+                        browser.Address = "about:blank";
+                    }
+
+                    // Card-like panel
+                    var card = new CardPanel
+                    {
+                        Dock = DockStyle.Fill,
+                        Padding = new Padding(6),
+                        Margin = new Padding(6),
+                        BackColor = Color.White,
+                        CornerRadius = 8,
+                        ShadowDepth = 6
+                    };
+
+                    browser.Dock = DockStyle.Fill;
+                    card.Controls.Add(browser);
+
+                    table.Controls.Add(card, col, row);
+                    index++;
+                }
+            }
+
+            // Füge neues TableLayoutPanel hinzu
+            this.Controls.Add(table);
+            table.BringToFront();
         }
     }
 }
