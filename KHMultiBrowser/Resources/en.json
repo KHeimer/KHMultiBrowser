@@ -1,0 +1,18 @@
+{
+  "app.title": "KH Multi-Browser",
+  "menu.file": "File",
+  "menu.settings": "Settings",
+  "menu.language": "Language",
+  "menu.exit": "Exit",
+  "dialog.gridSettings": "Grid Settings",
+  "dialog.rows": "Rows:",
+  "dialog.columns": "Columns:",
+  "dialog.ok": "OK",
+  "dialog.cancel": "Cancel",
+  "button.zoom": "Zoom",
+  "button.refresh": "Refresh",
+  "button.home": "Home",
+  "textbox.placeholder": "Enter address...",
+  "language.deutsch": "Deutsch",
+  "language.english": "English"
+}

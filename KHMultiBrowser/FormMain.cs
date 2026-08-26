@@ -39,7 +39,7 @@ using MyApp.Controls;
 
 namespace KHMultiBrowser
 {
-    public partial class Form1 : Form
+    public partial class FormMain : Form
     {
         private TableLayoutPanel tableLayoutPanelBrowsers;
         private readonly string stateFilePath;
@@ -53,7 +53,7 @@ namespace KHMultiBrowser
             public double Zoom { get; set; }
         }
 
-        public Form1()
+        public FormMain()
         {
             InitializeComponent();
 
@@ -65,6 +65,9 @@ namespace KHMultiBrowser
 
             // Lade Settings
             appSettings = LoadSettings();
+
+            // Lade Lokalisierung
+            StringResources.Instance.LoadLanguage(appSettings.Language);
 
             InitForm();
 
@@ -79,19 +82,33 @@ namespace KHMultiBrowser
             this.BackColor = Color.FromArgb(245, 245, 247);
             this.Padding = new Padding(8);
             this.DoubleBuffered = true;
+            this.Text = StringResources.Instance.Get("app.title");
 
-            // Erstelle MenuStrip mit Settings
+            // Erstelle MenuStrip mit Settings und Language
             var menuStrip = new MenuStrip
             {
                 BackColor = Color.FromArgb(245, 245, 247)
             };
-            var fileMenu = new ToolStripMenuItem("File");
-            var settingsMenuItem = new ToolStripMenuItem("Settings", null, SettingsMenuItem_Click);
-            var exitMenuItem = new ToolStripMenuItem("Exit", null, (s, e) => this.Close());
+
+            // File Menu
+            var fileMenu = new ToolStripMenuItem(StringResources.Instance.Get("menu.file"));
+            var settingsMenuItem = new ToolStripMenuItem(StringResources.Instance.Get("menu.settings"), null, SettingsMenuItem_Click);
             fileMenu.DropDownItems.Add(settingsMenuItem);
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
+
+            // Language Menu
+            var languageMenu = new ToolStripMenuItem(StringResources.Instance.Get("menu.language"));
+            var deutschItem = new ToolStripMenuItem(StringResources.Instance.Get("language.deutsch"), null, (s, e) => ChangeLanguage("de"));
+            var englishItem = new ToolStripMenuItem(StringResources.Instance.Get("language.english"), null, (s, e) => ChangeLanguage("en"));
+            languageMenu.DropDownItems.Add(deutschItem);
+            languageMenu.DropDownItems.Add(englishItem);
+            fileMenu.DropDownItems.Add(languageMenu);
+            fileMenu.DropDownItems.Add(new ToolStripSeparator());
+
+            var exitMenuItem = new ToolStripMenuItem(StringResources.Instance.Get("menu.exit"), null, (s, e) => this.Close());
             fileMenu.DropDownItems.Add(exitMenuItem);
             menuStrip.Items.Add(fileMenu);
+
             this.MainMenuStrip = menuStrip;
             this.Controls.Add(menuStrip);
 
@@ -379,6 +396,29 @@ namespace KHMultiBrowser
                     }
                 }
             }
+        }
+
+        private void ChangeLanguage(string languageCode)
+        {
+            if (languageCode == appSettings.Language)
+                return; // Sprache bereits aktiv
+
+            appSettings.Language = languageCode;
+            SaveSettings();
+            StringResources.Instance.LoadLanguage(languageCode);
+
+            // Neuinitialisierung der UI
+            RebuildUI();
+        }
+
+        private void RebuildUI()
+        {
+            // Form-Title
+            this.Text = StringResources.Instance.Get("app.title");
+
+            // TODO: Weitere UI-Elemente aktualisieren (wird in nächsten Schritten implementiert)
+            // Für jetzt nur TableLayout neu laden
+            RebuildTableLayout();
         }
 
         private void RebuildTableLayout()

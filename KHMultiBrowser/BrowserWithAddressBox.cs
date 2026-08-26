@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.ComponentModel;
 using System.Drawing;
+using KHMultiBrowser;
 
 namespace MyApp.Controls
 {
@@ -17,7 +18,7 @@ namespace MyApp.Controls
         private readonly double[] zoomLevels = new[] { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
 
         // Placeholder text für modernere Eingabe
-        private readonly string placeholderText = "Enter address...";
+        private readonly string placeholderText = "textbox.placeholder";
 
         public BrowserWithAddressBox()
         {
@@ -90,13 +91,13 @@ namespace MyApp.Controls
                     // Placeholder initialisieren
                     if (string.IsNullOrWhiteSpace(textBoxAddress.Text))
                     {
-                        textBoxAddress.Text = placeholderText;
+                        textBoxAddress.Text = StringResources.Instance.Get(placeholderText);
                         textBoxAddress.ForeColor = Color.Gray;
                     }
 
                     textBoxAddress.GotFocus += (s, e) =>
                     {
-                        if (textBoxAddress.Text == placeholderText)
+                        if (textBoxAddress.Text == StringResources.Instance.Get(placeholderText))
                         {
                             textBoxAddress.Text = string.Empty;
                             textBoxAddress.ForeColor = Color.FromArgb(64, 64, 64);
@@ -107,7 +108,7 @@ namespace MyApp.Controls
                     {
                         if (string.IsNullOrWhiteSpace(textBoxAddress.Text))
                         {
-                            textBoxAddress.Text = placeholderText;
+                            textBoxAddress.Text = StringResources.Instance.Get(placeholderText);
                             textBoxAddress.ForeColor = Color.Gray;
                         }
                     };
@@ -192,7 +193,8 @@ namespace MyApp.Controls
             get
             {
                 if (textBoxAddress == null) return string.Empty;
-                if (textBoxAddress.Text == placeholderText) return string.Empty;
+                var placeholder = StringResources.Instance.Get(placeholderText);
+                if (textBoxAddress.Text == placeholder) return string.Empty;
                 return textBoxAddress.Text;
             }
             set
@@ -200,7 +202,7 @@ namespace MyApp.Controls
                 if (textBoxAddress == null) return;
                 if (string.IsNullOrWhiteSpace(value))
                 {
-                    textBoxAddress.Text = placeholderText;
+                    textBoxAddress.Text = StringResources.Instance.Get(placeholderText);
                     textBoxAddress.ForeColor = Color.Gray;
                 }
                 else

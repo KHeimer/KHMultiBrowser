@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 
 namespace KHMultiBrowser
 {
@@ -18,6 +19,12 @@ namespace KHMultiBrowser
         /// </summary>
         [DefaultValue(3)]
         public int Columns { get; set; } = 3;
+
+        /// <summary>
+        /// Language code (default: system language or "en").
+        /// </summary>
+        [DefaultValue("")]
+        public string Language { get; set; } = GetDefaultLanguage();
 
         /// <summary>
         /// Minimum allowed rows.
@@ -46,6 +53,16 @@ namespace KHMultiBrowser
         {
             Rows = System.Math.Clamp(Rows, MinRows, MaxRows);
             Columns = System.Math.Clamp(Columns, MinColumns, MaxColumns);
+
+            if (string.IsNullOrWhiteSpace(Language))
+                Language = GetDefaultLanguage();
+        }
+
+        private static string GetDefaultLanguage()
+        {
+            var culture = CultureInfo.CurrentCulture;
+            var langCode = culture.TwoLetterISOLanguageName.ToLower();
+            return (langCode == "de" || langCode == "en") ? langCode : "en";
         }
     }
 }
